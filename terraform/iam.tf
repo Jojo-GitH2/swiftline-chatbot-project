@@ -96,5 +96,5 @@ resource "aws_iam_role_policy" "lex_bot_policy" {
 }
 
 resource "aws_cloudwatch_log_group" "lex_logs" {
-  name = "/aws/lex/${aws_lexv2models_bot.swiftline_bot.name}"
+  name = "/aws/lex/SwiftLineBot"
 }

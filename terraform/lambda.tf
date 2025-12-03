@@ -27,5 +27,4 @@ resource "aws_lambda_permission" "lex_invoke" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.lex_fulfillment.function_name
   principal     = "lexv2.amazonaws.com"
-  source_arn    = "arn:aws:lex:${var.aws_region}:${data.aws_caller_identity.current.account_id}:bot-alias/${aws_lexv2models_bot.swiftline_bot.id}/*"
 }

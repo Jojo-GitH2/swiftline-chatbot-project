@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "SwiftLine Lex V2 Bot Definition via CloudFormation"
+
+Parameters:
+  BotName:
+    Type: String
+  LexRoleArn:
+    Type: String
+  LambdaFulfillmentArn:
+    Type: String
+  BotAliasName:
+    Type: String
+
+Resources:
+  # ---------------------------------------------------------
+  # 1. THE BOT
+  # ---------------------------------------------------------
+  LexBot:
+    Type: "AWS::Lex::Bot"
+    Properties:
+      Name: !Ref BotName
+      RoleArn: !Ref LexRoleArn
+      DataPrivacy:
+        ChildDirected: false
+      IdleSessionTTLInSeconds: 300
+      BotLocales:
+        - LocaleId: "en_US"
+          NluConfidenceThreshold: 0.40
+          Intents:
+            # === INTENT 1: Get Order Status ===
+            - Name: "GetOrderStatus"
+              SampleUtterances:
+                - Utterance: "What is the status of my order {TrackingID}"
+                - Utterance: "Track my order with ID {TrackingID}"
+                - Utterance: "Where is my package"
+                - Utterance: "Track order"
+              FulfillmentCodeHook:
+                Enabled: true
+
+              SlotPriorities:
+                - Priority: 1
+                  SlotName: TrackingID
+                  
+              # 1. Slot Definition
+              Slots:
+                - Name: "TrackingID"
+                  SlotTypeName: "AMAZON.AlphaNumeric"
+                  ValueElicitationSetting:
+                    SlotConstraint: "Required"
+                    PromptSpecification:
+                      MaxRetries: 2
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Value: "Please provide your tracking ID (e.g., SWL-2024-AIR-001234)."
+
+              
+
+            # === INTENT 2: Fallback ===
+            - Name: "FallbackIntent"
+              ParentIntentSignature: "AMAZON.FallbackIntent"
+
+  # ---------------------------------------------------------
+  # 2. THE VERSION (Builds Version 1)
+  # ---------------------------------------------------------
+  BotVersion:
+    Type: "AWS::Lex::BotVersion"
+    Properties:
+      BotId: !Ref LexBot
+      BotVersionLocaleSpecification:
+        - LocaleId: "en_US"
+          BotVersionLocaleDetails:
+            SourceBotVersion: "DRAFT"
+    Metadata:
+      Comment: "Version 1 created from DRAFT"
+
+  # ---------------------------------------------------------
+  # 3. THE ALIAS (Points to Version 1)
+  # ---------------------------------------------------------
+  BotAlias:
+    Type: "AWS::Lex::BotAlias"
+    Properties:
+      BotAliasName: !Ref BotAliasName
+      BotId: !Ref LexBot
+      # CRITICAL FIX: Use !GetAtt to get the clean version number (e.g., "1")
+      BotVersion: !GetAtt BotVersion.BotVersion
+      BotAliasLocaleSettings:
+        - LocaleId: "en_US"
+          BotAliasLocaleSetting:
+            Enabled: true
+            CodeHookSpecification:
+              LambdaCodeHook:
+                CodeHookInterfaceVersion: "1.0"
+                LambdaArn: !Ref LambdaFulfillmentArn
+
+Outputs:
+  BotId:
+    Description: Lex Bot Id
+    Value: !Ref LexBot
+  BotAliasId:
+    Description: Lex BotAlias Id
+    Value: !Ref BotAlias
+  BotAliasArn:
+    Description: ARN of bot alias
+    Value: !Sub "arn:aws:lex:${AWS::Region}:${AWS::AccountId}:bot-alias/${LexBot}/${BotAlias}"
