@@ -1,94 +1,103 @@
 import json
-import os
 import boto3
-from botocore.exceptions import ClientError
+import os
+import logging
 
-# Initialize DynamoDB client
-dynamodb = boto3.resource('dynamodb')
-table_name = os.environ.get('ORDERS_TABLE')
-table = dynamodb.Table(table_name)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+dynamodb = boto3.resource("dynamodb")
+TABLE_NAME = os.environ.get("ORDERS_TABLE")
+table = dynamodb.Table(TABLE_NAME)
+
+
+def get_order_details(tracking_id):
+    try:
+        response = table.get_item(Key={"trackingId": tracking_id})
+        return response.get("Item")
+    except Exception as e:
+        logger.error(f"Error fetching order: {str(e)}")
+        return None
+
+
+def format_response(order):
+    if not order:
+        return "I couldn't find an order with that tracking ID. Please check the number and try again."
+
+    status = order.get("delivery", {}).get("status", "Unknown")
+    carrier = order.get("delivery", {}).get("carrier", "Unknown")
+    est_date = order.get("delivery", {}).get("estimatedDate", "Unknown")
+    customer = order.get("customer", {}).get("name", "Valued Customer")
+
+    msg = (
+        f"Hello {customer}. Order {order['trackingId']} is currently **{status}** via {carrier}. "
+        f"It is estimated to arrive by {est_date}."
+    )
+    return msg
+
 
 def lambda_handler(event, context):
-    print("Received event:", json.dumps(event))
+    logger.info(json.dumps(event))
 
-    # 1. Parse the Intent
-    interpretations = event.get('sessionState', {}).get('intent', {})
-    intent_name = interpretations.get('name')
+    intent_name = event["sessionState"]["intent"]["name"]
 
-    if intent_name == 'GetOrderStatus':
-        return check_order_status(event)
-
-    return close_dialog("Sorry, I didn't understand that request.")
-
-def check_order_status(event):
-    # 2. Extract the Slot (Tracking ID)
-    slots = event.get('sessionState', {}).get('intent', {}).get('slots', {})
-    tracking_id_slot = slots.get('TrackingID')
-
-    if not tracking_id_slot or not tracking_id_slot.get('value'):
-        return elicit_slot('TrackingID', "Please provide your tracking number (e.g., SWL-2024-AIR-001234).")
-
-    tracking_id = tracking_id_slot['value']['interpretedValue']
-
-    # 3. Query DynamoDB
-    try:
-        response = table.get_item(Key={'trackingId': tracking_id})
-    except ClientError as e:
-        print(e.response['Error']['Message'])
-        return close_dialog("I'm having trouble accessing the database right now.")
-
-    if 'Item' not in response:
-        return close_dialog(f"I couldn't find an order with ID {tracking_id}. Please check the number and try again.")
-
-    # 4. Format the Response
-    item = response['Item']
-    message = (
-        f"Order Found!\n"
-        f"Status: {item['delivery']['status']}\n"
-        f"Estimated Delivery: {item['delivery']['estimatedDate']}\n"
-        f"Customer: {item['customer']['name']}\n"
-        f"Items: {item['orderDetails']['items'][0]['name']} (x{item['orderDetails']['items'][0]['quantity']})"
-    )
-
-    return close_dialog(message)
-
-# Helper: Close the conversation
-def close_dialog(message):
-    return {
-        "sessionState": {
-            "dialogAction": {
-                "type": "Close"
+    # === LOGIC FOR WELCOME INTENT ===
+    if intent_name == "WelcomeIntent":
+        return {
+            "sessionState": {
+                "dialogAction": {"type": "Close"},
+                "intent": {"name": intent_name, "state": "Fulfilled"},
             },
-            "intent": {
-                "name": "GetOrderStatus",
-                "state": "Fulfilled"
+            "messages": [
+                {
+                    "contentType": "ImageResponseCard",
+                    "imageResponseCard": {
+                        "title": "Welcome to SwiftLine Support",
+                        "subtitle": "How can we help you today?",
+                        "buttons": [
+                            {"text": "Track my Order", "value": "Track my order"}
+                        ],
+                    },
+                }
+            ],
+        }
+
+    # === LOGIC FOR ORDER TRACKING ===
+    if intent_name == "GetOrderStatus":
+        try:
+            slots = event["sessionState"]["intent"]["slots"]
+            tracking_id = slots["TrackingID"]["value"]["originalValue"]
+            # Force Uppercase for DynamoDB
+            tracking_id = tracking_id.upper()
+        except (KeyError, TypeError):
+            return {
+                "sessionState": {"dialogAction": {"type": "Close"}},
+                "messages": [
+                    {
+                        "contentType": "PlainText",
+                        "content": "I encountered an error reading the tracking number.",
+                    }
+                ],
             }
-        },
+
+        order_data = get_order_details(tracking_id)
+        message_content = format_response(order_data)
+
+        return {
+            "sessionState": {
+                "dialogAction": {"type": "Close"},
+                "intent": {"name": intent_name, "state": "Fulfilled"},
+            },
+            "messages": [{"contentType": "PlainText", "content": message_content}],
+        }
+
+    # === FALLBACK ===
+    return {
+        "sessionState": {"dialogAction": {"type": "Delegate"}},
         "messages": [
             {
                 "contentType": "PlainText",
-                "content": message
+                "content": "I'm not sure how to help with that.",
             }
-        ]
-    }
-
-# Helper: Ask for a specific slot
-def elicit_slot(slot_to_elicit, message):
-    return {
-        "sessionState": {
-            "dialogAction": {
-                "type": "ElicitSlot",
-                "slotToElicit": slot_to_elicit
-            },
-            "intent": {
-                "name": "GetOrderStatus",
-                "state": "InProgress"
-            }
-        },
-        "messages": [
-            {
-                "contentType": "PlainText",
-                "content": message
-            }
-        ]
+        ],
     }

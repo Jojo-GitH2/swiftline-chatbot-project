@@ -27,21 +27,26 @@ Resources:
         - LocaleId: "en_US"
           NluConfidenceThreshold: 0.40
           Intents:
-            # === INTENT 1: Get Order Status ===
+            # === NEW: WELCOME INTENT ===
+            - Name: "WelcomeIntent"
+              SampleUtterances:
+                - Utterance: "Hi"
+                - Utterance: "Hello"
+                - Utterance: "Good morning"
+              FulfillmentCodeHook:
+                Enabled: true # Calls Lambda to show buttons
+
+            # === INTENT: Get Order Status ===
             - Name: "GetOrderStatus"
               SampleUtterances:
+                # Removed "Hi/Hello" from here to prevent conflicts
                 - Utterance: "What is the status of my order {TrackingID}"
                 - Utterance: "Track my order with ID {TrackingID}"
                 - Utterance: "Where is my package"
                 - Utterance: "Track order"
+                - Utterance: "I want to track my order"
               FulfillmentCodeHook:
                 Enabled: true
-
-              SlotPriorities:
-                - Priority: 1
-                  SlotName: TrackingID
-                  
-              # 1. Slot Definition
               Slots:
                 - Name: "TrackingID"
                   SlotTypeName: "AMAZON.AlphaNumeric"
@@ -53,17 +58,18 @@ Resources:
                         - Message:
                             PlainTextMessage:
                               Value: "Please provide your tracking ID (e.g., SWL-2024-AIR-001234)."
+              SlotPriorities:
+                - Priority: 1
+                  SlotName: "TrackingID"
 
-              
-
-            # === INTENT 2: Fallback ===
+            # === INTENT: Fallback ===
             - Name: "FallbackIntent"
               ParentIntentSignature: "AMAZON.FallbackIntent"
 
   # ---------------------------------------------------------
-  # 2. THE VERSION (Builds Version 1)
+  # 2. THE VERSION (Updated to V3 to force new build)
   # ---------------------------------------------------------
-  BotVersion:
+  BotVersionV3:
     Type: "AWS::Lex::BotVersion"
     Properties:
       BotId: !Ref LexBot
@@ -72,18 +78,17 @@ Resources:
           BotVersionLocaleDetails:
             SourceBotVersion: "DRAFT"
     Metadata:
-      Comment: "Version 1 created from DRAFT"
+      Comment: "Version 3 with Welcome Menu"
 
   # ---------------------------------------------------------
-  # 3. THE ALIAS (Points to Version 1)
+  # 3. THE ALIAS (Points to V3)
   # ---------------------------------------------------------
   BotAlias:
     Type: "AWS::Lex::BotAlias"
     Properties:
       BotAliasName: !Ref BotAliasName
       BotId: !Ref LexBot
-      # CRITICAL FIX: Use !GetAtt to get the clean version number (e.g., "1")
-      BotVersion: !GetAtt BotVersion.BotVersion
+      BotVersion: !GetAtt BotVersionV3.BotVersion 
       BotAliasLocaleSettings:
         - LocaleId: "en_US"
           BotAliasLocaleSetting:
