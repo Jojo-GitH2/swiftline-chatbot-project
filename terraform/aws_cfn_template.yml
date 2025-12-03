@@ -27,19 +27,18 @@ Resources:
         - LocaleId: "en_US"
           NluConfidenceThreshold: 0.40
           Intents:
-            # === NEW: WELCOME INTENT ===
+            # === INTENT: Welcome / Main Menu ===
             - Name: "WelcomeIntent"
               SampleUtterances:
                 - Utterance: "Hi"
                 - Utterance: "Hello"
-                - Utterance: "Good morning"
+                - Utterance: "Main Menu"  # <--- Triggers when user clicks "Yes"
               FulfillmentCodeHook:
-                Enabled: true # Calls Lambda to show buttons
+                Enabled: true 
 
             # === INTENT: Get Order Status ===
             - Name: "GetOrderStatus"
               SampleUtterances:
-                # Removed "Hi/Hello" from here to prevent conflicts
                 - Utterance: "What is the status of my order {TrackingID}"
                 - Utterance: "Track my order with ID {TrackingID}"
                 - Utterance: "Where is my package"
@@ -62,14 +61,24 @@ Resources:
                 - Priority: 1
                   SlotName: "TrackingID"
 
+            # === INTENT: End Conversation (NEW) ===
+            - Name: "EndConversationIntent"
+              SampleUtterances:
+                - Utterance: "No"
+                - Utterance: "No thanks"
+                - Utterance: "I am done"
+                - Utterance: "Bye"
+              FulfillmentCodeHook:
+                Enabled: true
+
             # === INTENT: Fallback ===
             - Name: "FallbackIntent"
               ParentIntentSignature: "AMAZON.FallbackIntent"
 
   # ---------------------------------------------------------
-  # 2. THE VERSION (Updated to V3 to force new build)
+  # 2. THE VERSION (Updated to V4)
   # ---------------------------------------------------------
-  BotVersionV3:
+  BotVersionV4:
     Type: "AWS::Lex::BotVersion"
     Properties:
       BotId: !Ref LexBot
@@ -78,17 +87,17 @@ Resources:
           BotVersionLocaleDetails:
             SourceBotVersion: "DRAFT"
     Metadata:
-      Comment: "Version 3 with Welcome Menu"
+      Comment: "Version 4 with Closing Loop"
 
   # ---------------------------------------------------------
-  # 3. THE ALIAS (Points to V3)
+  # 3. THE ALIAS (Points to V4)
   # ---------------------------------------------------------
   BotAlias:
     Type: "AWS::Lex::BotAlias"
     Properties:
       BotAliasName: !Ref BotAliasName
       BotId: !Ref LexBot
-      BotVersion: !GetAtt BotVersionV3.BotVersion 
+      BotVersion: !GetAtt BotVersionV4.BotVersion 
       BotAliasLocaleSettings:
         - LocaleId: "en_US"
           BotAliasLocaleSetting:
