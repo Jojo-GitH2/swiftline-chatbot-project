@@ -22,13 +22,40 @@ def format_response(order):
     if not order:
         return "I couldn't find an order with that tracking ID. Please check the number and try again."
     
-    status = order.get('delivery', {}).get('status', 'Unknown')
-    carrier = order.get('delivery', {}).get('carrier', 'Unknown')
-    est_date = order.get('delivery', {}).get('estimatedDate', 'Unknown')
-    customer = order.get('customer', {}).get('name', 'Valued Customer')
+    # 1. Basic Info
+    tracking_id = order.get('trackingId', 'N/A')
+    order_date = order.get('orderDate', 'N/A')
     
-    msg = (f"Hello {customer}. Order {order['trackingId']} is currently **{status}** via {carrier}. "
-           f"It is estimated to arrive by {est_date}.")
+    # 2. Customer Details
+    cust = order.get('customer', {})
+    c_name = cust.get('name', 'Valued Customer')
+    c_email = cust.get('email', 'N/A')
+    c_phone = cust.get('phone', 'N/A')
+    
+    # 3. Delivery Details
+    dlv = order.get('delivery', {})
+    status = dlv.get('status', 'Unknown')
+    carrier = dlv.get('carrier', 'Unknown')
+    est_date = dlv.get('estimatedDate', 'Unknown')
+    
+    # 4. Item Details (Loop through list)
+    items_list = ""
+    items = order.get('orderDetails', {}).get('items', [])
+    for item in items:
+        i_name = item.get('name', 'Item')
+        i_qty = item.get('quantity', '1')
+        i_vendor = item.get('vendor', 'Generic')
+        items_list += f"- {i_qty}x {i_name} (sold by {i_vendor})\n"
+
+    # Construct the verbose message required by assessment
+    msg = (
+        f"Here are the details for Order {tracking_id}:\n"
+        f"**Status:** {status}\n"
+        f"**Carrier:** {carrier} (Est: {est_date})\n"
+        f"**Ordered On:** {order_date}\n\n"
+        f"**Items:**\n{items_list}\n"
+        f"**Customer:** {c_name} | {c_email} | {c_phone}"
+    )
     return msg
 
 def lambda_handler(event, context):
@@ -36,7 +63,7 @@ def lambda_handler(event, context):
     
     intent_name = event['sessionState']['intent']['name']
 
-    # === 1. WELCOME / MAIN MENU ===
+    # === WELCOME ===
     if intent_name == 'WelcomeIntent':
         return {
             "sessionState": {
@@ -60,12 +87,12 @@ def lambda_handler(event, context):
             ]
         }
 
-    # === 2. GET ORDER STATUS (With Closing Loop) ===
+    # === GET ORDER STATUS ===
     if intent_name == 'GetOrderStatus':
         try:
             slots = event['sessionState']['intent']['slots']
             tracking_id = slots['TrackingID']['value']['originalValue']
-            tracking_id = tracking_id.upper()
+            tracking_id = tracking_id.upper().strip() # Added strip() for safety
         except (KeyError, TypeError):
             return {
                 "sessionState": {"dialogAction": {"type": "Close"}},
@@ -81,9 +108,7 @@ def lambda_handler(event, context):
                 "intent": {"name": intent_name, "state": "Fulfilled"}
             },
             "messages": [
-                # Message 1: The Result
                 {"contentType": "PlainText", "content": message_content},
-                # Message 2: The Loop Question
                 {
                     "contentType": "ImageResponseCard",
                     "imageResponseCard": {
@@ -104,7 +129,7 @@ def lambda_handler(event, context):
             ]
         }
 
-    # === 3. END CONVERSATION (New) ===
+    # === END CONVERSATION ===
     if intent_name == 'EndConversationIntent':
         return {
             "sessionState": {
@@ -114,7 +139,7 @@ def lambda_handler(event, context):
             "messages": [{"contentType": "PlainText", "content": "Thank you for using SwiftLine. Have a great day!"}]
         }
 
-    # === 4. FALLBACK ===
+    # === FALLBACK ===
     return {
         "sessionState": {"dialogAction": {"type": "Delegate"}},
         "messages": [{"contentType": "PlainText", "content": "I'm not sure how to help with that."}]

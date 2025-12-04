@@ -10,11 +10,18 @@ Parameters:
     Type: String
   BotAliasName:
     Type: String
+  AssessmentTag:
+    Type: String
+  ProjectTag:
+    Type: String
+  CreatedByTag:
+    Type: String
+  # === NEW PARAMETER ===
+  LexLogGroupArn:
+    Type: String
 
 Resources:
-  # ---------------------------------------------------------
   # 1. THE BOT
-  # ---------------------------------------------------------
   LexBot:
     Type: "AWS::Lex::Bot"
     Properties:
@@ -23,20 +30,24 @@ Resources:
       DataPrivacy:
         ChildDirected: false
       IdleSessionTTLInSeconds: 300
+      BotTags:
+        - Key: Assessment
+          Value: !Ref AssessmentTag
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Created_by
+          Value: !Ref CreatedByTag
       BotLocales:
         - LocaleId: "en_US"
           NluConfidenceThreshold: 0.40
           Intents:
-            # === INTENT: Welcome / Main Menu ===
             - Name: "WelcomeIntent"
               SampleUtterances:
                 - Utterance: "Hi"
                 - Utterance: "Hello"
-                - Utterance: "Main Menu"  # <--- Triggers when user clicks "Yes"
+                - Utterance: "Main Menu"
               FulfillmentCodeHook:
                 Enabled: true 
-
-            # === INTENT: Get Order Status ===
             - Name: "GetOrderStatus"
               SampleUtterances:
                 - Utterance: "What is the status of my order {TrackingID}"
@@ -60,8 +71,6 @@ Resources:
               SlotPriorities:
                 - Priority: 1
                   SlotName: "TrackingID"
-
-            # === INTENT: End Conversation (NEW) ===
             - Name: "EndConversationIntent"
               SampleUtterances:
                 - Utterance: "No"
@@ -70,15 +79,11 @@ Resources:
                 - Utterance: "Bye"
               FulfillmentCodeHook:
                 Enabled: true
-
-            # === INTENT: Fallback ===
             - Name: "FallbackIntent"
               ParentIntentSignature: "AMAZON.FallbackIntent"
 
-  # ---------------------------------------------------------
-  # 2. THE VERSION (Updated to V4)
-  # ---------------------------------------------------------
-  BotVersionV4:
+  # 2. THE VERSION (V5 - Bumped to force update)
+  BotVersionV5:
     Type: "AWS::Lex::BotVersion"
     Properties:
       BotId: !Ref LexBot
@@ -87,17 +92,25 @@ Resources:
           BotVersionLocaleDetails:
             SourceBotVersion: "DRAFT"
     Metadata:
-      Comment: "Version 4 with Closing Loop"
+      Comment: "Version 5 with Logging Enabled"
 
-  # ---------------------------------------------------------
-  # 3. THE ALIAS (Points to V4)
-  # ---------------------------------------------------------
+  # 3. THE ALIAS
   BotAlias:
     Type: "AWS::Lex::BotAlias"
     Properties:
       BotAliasName: !Ref BotAliasName
       BotId: !Ref LexBot
-      BotVersion: !GetAtt BotVersionV4.BotVersion 
+      BotVersion: !GetAtt BotVersionV5.BotVersion 
+      
+      # === NEW: CONVERSATION LOGGING ===
+      ConversationLogSettings:
+        TextLogSettings:
+          - Enabled: true
+            Destination:
+              CloudWatch:
+                CloudWatchLogGroupArn: !Ref LexLogGroupArn
+                LogPrefix: "ConversationLogs"
+      
       BotAliasLocaleSettings:
         - LocaleId: "en_US"
           BotAliasLocaleSetting:
@@ -109,11 +122,8 @@ Resources:
 
 Outputs:
   BotId:
-    Description: Lex Bot Id
     Value: !Ref LexBot
   BotAliasId:
-    Description: Lex BotAlias Id
     Value: !Ref BotAlias
   BotAliasArn:
-    Description: ARN of bot alias
     Value: !Sub "arn:aws:lex:${AWS::Region}:${AWS::AccountId}:bot-alias/${LexBot}/${BotAlias}"
