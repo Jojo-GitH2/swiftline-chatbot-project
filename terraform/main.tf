@@ -4,10 +4,7 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.23.0"
     }
-    # awscc = {
-    #   source  = "hashicorp/awscc"
-    #   version = "1.65.0"
-    # }
+    
   }
 }
 
@@ -22,9 +19,6 @@ provider "aws" {
   }
 }
 
-# provider "awscc" {
-#   # Configuration options
-# }
 
 locals {
   name-prefix = "swiftline"
