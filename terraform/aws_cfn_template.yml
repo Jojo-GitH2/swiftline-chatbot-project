@@ -16,7 +16,6 @@ Parameters:
     Type: String
   CreatedByTag:
     Type: String
-  # === NEW PARAMETER ===
   LexLogGroupArn:
     Type: String
 
@@ -82,8 +81,8 @@ Resources:
             - Name: "FallbackIntent"
               ParentIntentSignature: "AMAZON.FallbackIntent"
 
-  # 2. THE VERSION (V5 - Bumped to force update)
-  BotVersionV5:
+  # 2. THE VERSION 
+  BotVersion:
     Type: "AWS::Lex::BotVersion"
     Properties:
       BotId: !Ref LexBot
@@ -92,7 +91,7 @@ Resources:
           BotVersionLocaleDetails:
             SourceBotVersion: "DRAFT"
     Metadata:
-      Comment: "Version 5 with Logging Enabled"
+      Comment: "Version 1 with Logging Enabled"
 
   # 3. THE ALIAS
   BotAlias:
@@ -100,7 +99,7 @@ Resources:
     Properties:
       BotAliasName: !Ref BotAliasName
       BotId: !Ref LexBot
-      BotVersion: !GetAtt BotVersionV5.BotVersion 
+      BotVersion: !GetAtt BotVersion.BotVersion 
       
       # === NEW: CONVERSATION LOGGING ===
       ConversationLogSettings:
