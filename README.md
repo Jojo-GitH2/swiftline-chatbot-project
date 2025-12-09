@@ -50,8 +50,8 @@ Since this is a secured backend infrastructure deployment, access is managed via
 1.  Log in to the **AWS Management Console**.
 2.  Navigate to the **Amazon Lex** service.
 3.  Click on the bot named **SwiftLineBot**.
-4.  In the left sidebar, select **Aliases** > **TestBotAlias**.
-    * *Note: The `TestBotAlias` is the DRAFT environment used for verification.*
+4.  In the left sidebar, select **Aliases** > **LiveBotAlias**.
+    * *Note: The `LiveBotAlias` is the DRAFT environment used for verification.*
 5.  Click the **Test** button to open the chat window.
 
 ### Test Script
